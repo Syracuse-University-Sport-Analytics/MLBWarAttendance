@@ -1,0 +1,836 @@
+---
+title: "MLB Attendance Project - Models"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Dependencies
+```{r}
+library(tidyverse)
+library(sjPlot)
+#if newer features are required, use the following to install sjPlot and all dependencies
+#devtools::install_github("strengejacke/strengejacke")
+```
+
+
+Load Data
+```{r}
+attendanceTicketPriceWAR <- read.csv("data/attendanceTicketPriceWAR.csv")
+attendanceTicketPriceWAR$mowar2 <- attendanceTicketPriceWAR$mowar * attendanceTicketPriceWAR$mowar
+attendanceTicketPriceWAR$numTeamWins2 <- attendanceTicketPriceWAR$numTeamWins * attendanceTicketPriceWAR$numTeamWins
+attendanceTicketPriceWAR$winDifference <- attendanceTicketPriceWAR$Win - attendanceTicketPriceWAR$WinExpectation 
+attendanceTicketPriceWAR$VegasWins <- attendanceTicketPriceWAR$WinExpectation
+```
+
+
+
+1) Original
+pWAR, dWAR, and moWAR Models
+```{r}
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + team fixed effects
+attendanceWARModel1 <- lm(data = attendanceTicketPriceWAR,
+                       Attendance ~
+                         mowar +
+                         pwar +
+                         dwar +
+                         LuckyWins + 
+                         factor(Team))
+print("attendanceWARModel1")
+summary(attendanceWARModel1)
+
+
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + b5*MSA per capita gross metro product + b6*MSA population + team fixed effects
+attendanceWARModel2 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowar +
+    pwar +
+    dwar +
+    LuckyWins + 
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    factor(Team)
+)
+print("attendanceWARModel2")
+summary(attendanceWARModel2)
+
+
+
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + b5*MSA per capita gross metro product + b6*MSA population +  b7*avg_price + b8*attendance growth + b9*made the playoffs + b10*change in win% + new stadium effects + team fixed effects
+attendanceWARModel3 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowar +
+    pwar +
+    dwar +
+    LuckyWins + 
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    factor(Team)
+)
+print("attendanceWARModel3")
+summary(attendanceWARModel3)
+
+attendanceDeltaWARModel3_1 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    Win +
+    deltaMOWAR +
+    deltaDWAR +
+    deltaPWAR +
+    deltaLuckyWins +
+    AveragePrice +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    NewStadium +
+    factor(Team)
+)
+print("attendanceDeltaWARModel3_1")
+summary(attendanceDeltaWARModel3_1)
+
+attendanceDeltaWARModel3_2 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    VegasWins +
+    deltaMOWAR +
+    deltaDWAR +
+    deltaPWAR +
+    deltaLuckyWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    NewStadium +
+    factor(Team)
+)
+print("attendanceDeltaWARModel3_2")
+summary(attendanceDeltaWARModel3_2)
+
+
+oWARModel <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowar
+)
+print("oWARModel")
+summary(oWARModel)
+
+dWARModel <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    dwar
+)
+print("dWARModel")
+summary(dWARModel)
+
+pWARModel <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    pwar
+)
+print("pWARModel")
+summary(pWARModel)
+
+```
+
+
+
+
+
+
+oWAR/total WAR + pWAR/total WAR models:
+```{r}
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*numTeamWins + team fixed effects
+attendanceWARProportionModel1 <- lm(data = attendanceTicketPriceWAR,
+                       Attendance ~
+                         mowarOverWar +
+                         pwarOverWar +
+                         numTeamWins +
+                         factor(Team))
+print("attendanceWARProportionModel1")
+summary(attendanceWARProportionModel1)
+
+
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + b4*MSA per capita gross metro product + b5*MSA population + team fixed effects
+attendanceWARProportionModel2 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowarOverWar +
+    pwarOverWar +
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    factor(Team)
+)
+print("attendanceWARProportionModel2")
+summary(attendanceWARProportionModel2)
+
+
+#attendance= b0 + b1*NumWins + b2*MSA per capita gross metro product + b3*MSA population +  b4*avg_price + b5*attendance growth + b6*made the playoffs + b7*change in win% + new stadium effects + team fixed effects 
+attendanceWARProportionModel3Base <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    VegasWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    factor(Team)
+)
+print("attendanceWARProportionModel3Base")
+summary(attendanceWARProportionModel3Base)
+attendanceTicketPriceWAR$TeamWins <- attendanceTicketPriceWAR$numTeamWins
+attendanceWARProportionModel3BaseActualWins <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    TeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    factor(Team)
+)
+print("attendanceWARProportionModel3BaseActualWins")
+summary(attendanceWARProportionModel3BaseActualWins)
+
+
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + b4*MSA per capita gross metro product + b5*MSA population +  b6*avg_price + b7*attendance growth + b8*made the playoffs + b9*change in win% + new stadium effects + team fixed effects
+attendanceWARProportionModel3 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowarOverWar +
+    pwarOverWar +
+    VegasWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    factor(Team)
+)
+print("attendanceWARProportionModel3")
+summary(attendanceWARProportionModel3)
+
+attendanceWARProportionModel3ActualWins <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowarOverWar +
+    pwarOverWar +
+    TeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    factor(Team)
+)
+print("attendanceWARProportionModel3ActualWins")
+summary(attendanceWARProportionModel3ActualWins)
+
+```
+
+
+2) Time Dummies
+pWAR, dWAR, and moWAR Models
+```{r}
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + team fixed effects + season fixed effects
+attendanceWARTDModel1 <- lm(data = attendanceTicketPriceWAR,
+                       Attendance ~
+                         mowar +
+                         pwar +
+                         dwar +
+                         LuckyWins + 
+                         factor(Team) +
+                         factor(Season))
+print("attendanceWARTDModel1")
+summary(attendanceWARTDModel1)
+
+
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + b5*MSA per capita gross metro product + b6*MSA population + team fixed effects + season fixed effects
+attendanceWARTDModel2 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowar +
+    pwar +
+    dwar +
+    LuckyWins + 
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    factor(Team) +
+    factor(Season)
+)
+print("attendanceWARTDModel2")
+summary(attendanceWARTDModel2)
+
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + b5*MSA per capita gross metro product + b6*MSA population +  b7*avg_price + b8*attendance growth + b9*made the playoffs + b10*change in win% + new stadium effects + team fixed effects + season fixed effects
+attendanceWARTDModel3 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowar +
+    pwar +
+    dwar +
+    LuckyWins + 
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    factor(Team) +
+    factor(Season)
+)
+print("attendanceWARTDModel3")
+summary(attendanceWARTDModel3)
+
+```
+
+
+
+
+
+
+oWAR/total WAR + pWAR/total WAR models:
+```{r}
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + team fixed effects + season fixed effects
+attendanceWARTDProportionModel1 <- lm(data = attendanceTicketPriceWAR,
+                       Attendance ~
+                         mowarOverWar +
+                         pwarOverWar +
+                         numTeamWins +
+                         factor(Team) +
+                         factor(Season))
+print("attendanceWARTDProportionModel1")
+summary(attendanceWARTDProportionModel1)
+
+
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + b4*MSA per capita gross metro product + b5*MSA population + team fixed effects + season fixed effects
+attendanceWARTDProportionModel2 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowarOverWar +
+    pwarOverWar +
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    factor(Team) +
+    factor(Season)
+)
+print("attendanceWARTDProportionModel2")
+summary(attendanceWARTDProportionModel2)
+
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + b4*MSA per capita gross metro product + b5*MSA population +  b6*avg_price + b7*attendance growth + b8*made the playoffs + b9*change in win% + new stadium effects + team fixed effects + season fixed effects
+attendanceWARTDProportionModel3 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowarOverWar +
+    pwarOverWar +
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    factor(Team) +
+    factor(Season)
+)
+print("attendanceWARTDProportionModel3")
+summary(attendanceWARTDProportionModel3)
+
+```
+
+
+
+3) Time Trend
+pWAR, dWAR, and moWAR Models
+```{r}
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR +season +  team fixed effects
+attendanceWARTTrendModel1 <- lm(data = attendanceTicketPriceWAR,
+                       Attendance ~
+                         mowar +
+                         pwar +
+                         dwar +
+                         LuckyWins + 
+                         Season +
+                         factor(Team))
+print("attendanceWARTTrendModel1")
+summary(attendanceWARTTrendModel1)
+
+
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + b5*MSA per capita gross metro product + b6*MSA population + season +  team fixed effects 
+attendanceWARTTrendModel2 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowar +
+    pwar +
+    dwar +
+    LuckyWins + 
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    Season+
+    factor(Team)
+)
+print("attendanceWARTTrendModel2")
+summary(attendanceWARTTrendModel2)
+
+
+
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + b5*MSA per capita gross metro product + b6*MSA population +  b7*avg_price + b8*attendance growth + b9*made the playoffs + b10*change in win% + new stadium effects + season + team fixed effects
+attendanceWARTTrendModel3 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowar +
+    pwar +
+    dwar +
+    LuckyWins + 
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    Season+
+    factor(Team)
+)
+print("attendanceWARTTrendModel3")
+summary(attendanceWARTTrendModel3)
+
+#attendance= b0 + b2*numTeamWins + b3*MSA per capita gross metro product + b4*MSA population +  b5*avg_price + b6*attendance growth + b7*made the playoffs + b8*change in win% + new stadium effects + season + team fixed effects
+attendanceWARTTrendModel4 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    Season+
+    factor(Team)
+)
+print("attendanceWARTTrendModel4")
+summary(attendanceWARTTrendModel4)
+
+```
+
+
+
+
+
+
+oWAR/total WAR + pWAR/total WAR models:
+```{r}
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + season + team fixed effects 
+attendanceWARTTrendProportionModel1 <- lm(data = attendanceTicketPriceWAR,
+                       Attendance ~
+                         mowarOverWar +
+                         pwarOverWar +
+                         numTeamWins +
+                         Season +
+                         factor(Team))
+print("attendanceWARTTrendProportionModel1")
+summary(attendanceWARTTrendProportionModel1)
+
+
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + b4*MSA per capita gross metro product + b5*MSA population + season + team fixed effects
+attendanceWARTTrendProportionModel2 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowarOverWar +
+    pwarOverWar +
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    Season+
+    factor(Team)
+)
+print("attendanceWARTTrendProportionModel2")
+summary(attendanceWARTTrendProportionModel2)
+
+#attendance= b0 + b1*NumWins + b2*MSA per capita gross metro product + b3*MSA population +  b4*avg_price + b5*attendance growth + b6*made the playoffs + b7*change in win% + new stadium effects + season + team fixed effects 
+attendanceWARTTrendProportionModel3Base <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    Season+
+    factor(Team)
+)
+print("attendanceWARTTrendProportionModel3Base")
+summary(attendanceWARTTrendProportionModel3Base)
+
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + b4*MSA per capita gross metro product + b5*MSA population +  b6*avg_price + b7*attendance growth + b8*made the playoffs + b9*change in win% + new stadium effects + season + team fixed effects
+attendanceWARTTrendProportionModel3 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowarOverWar +
+    pwarOverWar +
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    Season+
+    factor(Team)
+)
+print("attendanceWARTTrendProportionModel3")
+summary(attendanceWARTTrendProportionModel3)
+
+```
+
+
+4) Time Dummies and Time Trend
+pWAR, dWAR, and moWAR Models
+```{r}
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + season + team fixed effects + season fixed effects
+attendanceWARTDTTrendModel1 <- lm(data = attendanceTicketPriceWAR,
+                       Attendance ~
+                         mowar +
+                         pwar +
+                         dwar +
+                         LuckyWins + 
+                         Season+
+                         factor(Team) +
+                         factor(Season))
+print("attendanceWARTDTTrendModel1")
+summary(attendanceWARTDTTrendModel1)
+
+
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + b5*MSA per capita gross metro product + b6*MSA population + season + team fixed effects + season fixed effects
+attendanceWARTDTTrendModel2 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowar +
+    pwar +
+    dwar +
+    LuckyWins + 
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    Season+
+    factor(Team) +
+    factor(Season)
+)
+print("attendanceWARTDTTrendModel2")
+summary(attendanceWARTDTTrendModel2)
+
+#attendance= b0 + b1*oWAR + b2*pWAR + b3*dWAR + b4*luckyWins + b5*MSA per capita gross metro product + b6*MSA population +  b7*avg_price + b8*attendance growth + b9*made the playoffs + b10*change in win% + new stadium effects + season + team fixed effects + season fixed effects
+attendanceWARTDTTrendModel3 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowar +
+    pwar +
+    dwar +
+    LuckyWins + 
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    Season+
+    factor(Team) +
+    factor(Season)
+)
+print("attendanceWARTDTTrendModel3")
+summary(attendanceWARTDTTrendModel3)
+
+```
+
+
+
+
+
+
+oWAR/total WAR + pWAR/total WAR models:
+```{r}
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + season + team fixed effects + season fixed effects
+attendanceWARTDTTrendProportionModel1 <- lm(data = attendanceTicketPriceWAR,
+                       Attendance ~
+                         mowarOverWar +
+                         pwarOverWar +
+                         numTeamWins +
+                         Season+
+                         factor(Team) +
+                         factor(Season))
+print("attendanceWARTDTTrendProportionModel1")
+summary(attendanceWARTDTTrendProportionModel1)
+
+
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + b4*MSA per capita gross metro product + b5*MSA population + season + team fixed effects + season fixed effects
+attendanceWARTDTTrendProportionModel2 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowarOverWar +
+    pwarOverWar +
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    Season+
+    factor(Team) +
+    factor(Season)
+)
+print("attendanceWARTDTTrendProportionModel2")
+summary(attendanceWARTDTTrendProportionModel2)
+
+
+#attendance= b0 + b1*NumWins + b2*MSA per capita gross metro product + b3*MSA population +  b4*avg_price + b5*attendance growth + b6*made the playoffs + b7*change in win% + new stadium effects + season + team fixed effects + season fixed effects
+attendanceWARTDTTrendProportionModel3Base <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    Season+
+    factor(Team) +
+    factor(Season)
+)
+print("attendanceWARTDTTrendProportionModel3Base")
+summary(attendanceWARTDTTrendProportionModel3Base)
+
+
+#attendance= b0 + b1*oWAR/total WAR + b2*pWAR/total WAR + b3*NumWins + b4*MSA per capita gross metro product + b5*MSA population +  b6*avg_price + b7*attendance growth + b8*made the playoffs + b9*change in win% + new stadium effects + season + team fixed effects + season fixed effects
+attendanceWARTDTTrendProportionModel3 <- lm(
+  data = attendanceTicketPriceWAR,
+  Attendance ~
+    mowarOverWar +
+    pwarOverWar +
+    numTeamWins +
+    gdppercapita +
+    gdppercapita2 +
+    Population +
+    DeltaLeagueAttendanceMinusTeam +
+    PlayedInPlayoffs +
+    DeltaWL +
+    NewStadium +
+    Season+
+    factor(Team) +
+    factor(Season)
+)
+print("attendanceWARTDTTrendProportionModel3")
+summary(attendanceWARTDTTrendProportionModel3)
+
+
+
+```
+
+
+
+Prep for modeling
+```{r}
+#fixedEffects will contains all of the dummy variables that we don't want shown in the tables
+fixedEffects <- c("factor(Season)20 [11,12,13,14,15,16,17,18,19]", "NewStadium [0,1,2,3,4,5,6,7,8]","NewStadiumNA",
+                  "factor(Team)Atlanta Braves",
+                  "factor(Team)Baltimore Orioles",
+                  "factor(Team)Boston Red Sox",
+                  "factor(Team)Chicago Cubs",
+                  "factor(Team)Chicago White Sox",
+                  "factor(Team)Cincinnati Reds",
+                  "factor(Team)Cleveland Indians",
+                  "factor(Team)Colorado Rockies",
+                  "factor(Team)Detroit Tigers",
+                  "factor(Team)Houston Astros",
+                  "factor(Team)Kansas City Royals",
+                  "factor(Team)Los Angeles Angels",
+                  "factor(Team)Los Angeles Dodgers",
+                  "factor(Team)Miami Marlins",
+                  "factor(Team)Milwaukee Brewers",
+                  "factor(Team)Minnesota Twins",
+                  "factor(Team)New York Mets",
+                  "factor(Team)New York Yankees",
+                  "factor(Team)Oakland Athletics",
+                  "factor(Team)Philadelphia Phillies",
+                  "factor(Team)Pittsburgh Pirates",
+                  "factor(Team)San Diego Padres",
+                  "factor(Team)San Francisco Giants",
+                  "factor(Team)Seattle Mariners",
+                  "factor(Team)St. Louis Cardinals",
+                  "factor(Team)Tampa Bay Rays",
+                  "factor(Team)Texas Rangers",
+                  "factor(Team)Washington Nationals",
+                  "factor(Team)Toronto Blue Jays")
+```
+
+
+
+
+Full Tables
+```{r}
+
+tab_model(attendanceWARModel1, attendanceWARModel2, attendanceWARModel3, attendanceWARTDModel1, attendanceWARTDModel2, attendanceWARTDModel3, attendanceWARTTrendModel1, attendanceWARTTrendModel2,attendanceWARTTrendModel3,attendanceWARTTrendModel4,dv.labels = c("attendanceWARModel1","attendanceWARModel2","attendanceWARModel3","attendanceWARTDModel1","attendanceWARTDModel2","attendanceWARTDModel3","attendanceWARTTrendModel1","attendanceWARTTrendModel2","attendanceWARTTrendModel3","attendanceWARTTrendModel4","attendanceWARTDTTrendModel1","attendanceWARTDTTrendModel2","attendanceWARTDTTrendModel3"), rm.terms = fixedEffects)
+
+
+tab_model(attendanceWARProportionModel1, attendanceWARProportionModel2, attendanceWARProportionModel3, attendanceWARTDProportionModel1, attendanceWARTDProportionModel2, attendanceWARTDProportionModel3, attendanceWARTTrendProportionModel1, attendanceWARTTrendProportionModel2,attendanceWARTTrendProportionModel3,dv.labels = c("attendanceWARProportionModel1","attendanceWARProportionModel2","attendanceWARProportionModel3","attendanceWARTDProportionModel1","attendanceWARTDProportionModel2","attendanceWARTDProportionModel3","attendanceWARTTrendProportionModel1","attendanceWARTTrendProportionModel2","attendanceWARTTrendProportionModel3","attendanceWARTDTTrendProportionModel1","attendanceWARTDTTrendProportionModel2","attendanceWARTDTTrendProportionModel3"), rm.terms = fixedEffects)
+
+```
+
+
+Correlations
+```{r}
+library(mctest)
+library(corpcor)
+library(GGally)
+
+
+
+
+y <- attendanceTicketPriceWAR["Attendance"]
+x <- attendanceTicketPriceWAR[c("mowar", "pwar", "dwar", "LuckyWins", "gdppercapita","Population", "DeltaLeagueAttendanceMinusTeam", "PlayedInPlayoffs", "DeltaWL", "NewStadium")]
+x <- attendanceTicketPriceWAR[c("mowar", "pwar", "dwar","LuckyWins")]
+
+omcdiag(x=x,y=y)
+ggpairs(x)
+cor2pcor(cov(x))
+imcdiag(x=x,y=y, method = "CVIF") #CVIF method (Curto and Pinto, 2011 <doi: 10.1080/02664763.2010.505956>)
+
+
+
+oWARdWARCorrelation <- cor.test(attendanceTicketPriceWAR$mowar, attendanceTicketPriceWAR$dwar, method = "pearson")
+oWARdWARCorrelation
+
+
+```
+
+
+autocorrelation
+```{r}
+library(lmtest)
+dwtest(attendanceWARModel3)
+dwtest(attendanceWARProportionModel3Base)
+dwtest(attendanceWARProportionModel3)
+
+```
+
+
+
+Paper Tables
+```{r}
+
+
+
+tab_model(attendanceWARProportionModel3BaseActualWins,attendanceWARProportionModel3ActualWins, attendanceWARModel3, dv.labels = c("Base","WAR Proportion", "WAR Decomposed"), rm.terms = fixedEffects, show.se = TRUE, show.ci = FALSE, digits = 3)
+
+tab_model(attendanceWARProportionModel3Base,attendanceWARProportionModel3, attendanceDeltaWARModel3_2, dv.labels = c("Base","WAR Proportion", "WAR Components Change"), rm.terms = fixedEffects, show.se = TRUE, show.ci = FALSE, digits = 3)
+
+```
+
+
+Summary Tables
+```{r}
+
+
+
+
+variablesToSummarize <- c("Attendance","Win","gdppercapita","Population","DeltaLeagueAttendanceMinusTeam","PlayedInPlayoffs","DeltaWL","NewStadium","mowarOverWar","pwarOverWar","deltaLuckyWins","mowar","dwar","pwar","LuckyWins")
+
+variablesToSummarizePublished <- c("Attendance","Wins","GDPPerCapita","Population","DeltaLeagueAttendance","PlayedInPlayoffs","DeltaWL","New Stadium","moWAR/WAR","pWAR/WAR","deltaLuckyWins","moWAR","dWAR","pWAR","LuckyWins")
+
+summaryStats <- data.frame()
+for(i in 1:length(variablesToSummarize)){
+
+  attendanceTicketPriceWAR %>% summarize_at(variablesToSummarize[i], funs(mean,sd,min,max,median), na.rm= TRUE) -> currentSummary
+  currentSummary$Variable <- variablesToSummarizePublished[i]
+  summaryStats %>% bind_rows(currentSummary) -> summaryStats
+}
+
+write_csv(summaryStats,path = "data/summaryStats.csv")
+
+```
+
+Suggestions
+```{r}
+summary(attendanceDeltaWARModel3_1)
+summary(attendanceDeltaWARModel3_2)
+
+summary(oWARModel)
+summary(dWARModel)
+summary(pWARModel)
+```
+
+Visualizations
+```{r}
+library(teamcolors)
+library(cowplot)
+library(ggpubr)
+
+vegasOddsVActualWinsColor <- ggplot(attendanceTicketPriceWAR, aes(VegasWins, Win)) + geom_smooth(method="lm", se = FALSE, color="grey", linetype = 1, fullrange=TRUE) + geom_point(aes(color=Team,fill = Team),shape = 21, size = 3, stroke = 1) + scale_fill_teams(2) + scale_color_teams(1, guide = FALSE) + theme_minimal() + scale_x_continuous(limits=c(50, 110)) + scale_y_continuous(limits=c(50, 110)) +
+theme(aspect.ratio=1)
+vegasOddsVActualWinsColor
+
+vegasOddsVActualWinsBW <- ggplot(attendanceTicketPriceWAR, aes(VegasWins, Win)) + geom_smooth(method="lm", se = FALSE, color="black", linetype = 1, fullrange=TRUE) + geom_point(shape = 21, size = 2, fill="black") + scale_fill_teams() + scale_color_teams(2, guide = FALSE) + theme_minimal() + scale_x_continuous(limits=c(50, 110)) + scale_y_continuous(limits=c(50, 110)) +
+theme(aspect.ratio=1)+ scale_x_continuous(limits=c(50, 110)) + scale_y_continuous(limits=c(50, 110)) 
+vegasOddsVActualWinsBW
+
+
+mowarPlot <- ggplot(attendanceTicketPriceWAR, aes(mowar, Attendance)) + geom_smooth(method="lm", se = FALSE, color="grey", linetype = 1, fullrange=TRUE,formula = 'y ~ x') + geom_point(aes(color=Team,fill = Team),shape = 21, size = 3, stroke = 1) + scale_fill_teams(2) + scale_color_teams(1, guide = FALSE) + theme_minimal() +
+theme(aspect.ratio=1)+ scale_x_continuous(limits=c(-12, 40)) + scale_y_continuous(limits=c(1200000, 3800000))
+mowarPlot
+
+pwarPlot <- ggplot(attendanceTicketPriceWAR, aes(pwar, Attendance)) + geom_smooth(method="lm", se = FALSE, color="grey", linetype = 1, fullrange=TRUE,formula = 'y ~ x') + geom_point(aes(color=Team,fill = Team),shape = 21, size = 3, stroke = 1) + scale_fill_teams(2) + scale_color_teams(1, guide = FALSE) + theme_minimal() +
+theme(aspect.ratio=1)+ scale_x_continuous(limits=c(-12, 40)) + scale_y_continuous(limits=c(1200000, 3800000))
+pwarPlot
+
+dwarPlot <- ggplot(attendanceTicketPriceWAR, aes(dwar, Attendance)) + geom_smooth(method="lm", se = FALSE, color="grey", linetype = 1, fullrange=TRUE,formula = 'y ~ x') + geom_point(aes(color=Team,fill = Team),shape = 21, size = 3, stroke = 1) + scale_fill_teams(2) + scale_color_teams(1, guide = FALSE) + theme_minimal() +
+theme(aspect.ratio=1)+ scale_x_continuous(limits=c(-12, 40)) + scale_y_continuous(limits=c(1200000, 3800000))
+dwarPlot
+
+
+ggarrange(mowarPlot, pwarPlot, dwarPlot + rremove("x.text"), 
+          labels = c("moWAR","pWAR","dWAR"),
+          ncol = 2, nrow = 2, align = "hv",
+          common.legend = TRUE, legend="bottom")
+
+
+```
+

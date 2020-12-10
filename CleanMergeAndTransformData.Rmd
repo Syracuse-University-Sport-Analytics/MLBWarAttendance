@@ -1,0 +1,223 @@
+---
+title: "MLB Attendance Project - Clean and Transform Functions"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+Dependencies
+```{r}
+library(tidyverse)
+replaceItem <- function(listToModify,itemToFind,newItem){
+  
+  newList <- listToModify
+  matchedList <- match(listToModify,itemToFind)
+  for (i in 1:length(listToModify)){
+    if(!is.na(matchedList[[i]])){
+      newList[[i]] <- newItem
+    }
+  }
+  
+
+  return(newList)
+}
+
+replaceOldTeamNames <- function(teamNames){
+    teamsAltName <- replaceItem(teamNames,"ANA","LAA")
+    teamsAltName <- replaceItem(teamsAltName,"TBD","TBR")
+    teamsAltName <- replaceItem(teamsAltName,"FLA","MIA")
+    return(teamsAltName)
+}
+```
+
+ 
+ 
+Read Data
+```{r}
+library(dplyr)
+warData <- read.csv("data/returns to war data.csv")
+
+warData <- warData %>% filter(warData$pitcher == 0)
+warData <- warData %>% filter(warData$name != "Billy Butler")
+warData$mdwar <- warData$war - warData$owar
+warData$mowar <- warData$war - warData$dwar
+warData <- within(warData, position <- relevel(position, ref = 9))#make SS the base
+warData$newTeam <- !(as.character(warData$team) == as.character(warData$from))
+
+
+teamNameConversion <- read.csv("data/Team Name MSA BEA Census.csv")
+teamNameConversion$team <- teamNameConversion$Team
+teamNameConversion$Team <- NULL
+
+censusData <- read.csv("data/MSACensusTidy.csv", fileEncoding="UTF-8-BOM")
+censusData$year <- censusData$Year
+censusData$Year <- NULL
+
+
+gdpData <- read.csv("data/MSAGDPTidy.csv", fileEncoding="UTF-8-BOM")
+gdpData$year <- gdpData$Year
+gdpData$Year <- NULL
+
+oddsData <- read_csv("data/odds.csv")
+oddsData$year <- oddsData$Season
+oddsData$Season <- NULL
+
+warData <- merge(warData,teamNameConversion, by = "team")
+warData <- merge(warData,censusData, by = c("CensusMSA","year"))
+warData <- merge(warData,gdpData, by = c("GDPMSA","year"))
+
+warData <- merge(warData,oddsData, by = c("FullName","year"))
+
+```
+
+
+Merge all of the tables
+```{r}
+
+
+previousWarData <- data.frame(name=warData$name,year=warData$year,previousWar=warData$war, previousMowar=warData$mowar, previousMdwar=warData$mdwar, previousOwar=warData$owar, previousDwar=warData$dwar)
+previousWarData$previousYear <- previousWarData$year
+previousWarData$year <- previousWarData$year+1
+previousPreviousWarData <- data.frame(name=warData$name,year=warData$year,previousPreviousWar=warData$war, previousPreviousMowar=warData$mowar, previousPreviousMdwar=warData$mdwar, previousPreviousOwar=warData$owar, previousPreviousDwar=warData$dwar)
+previousPreviousWarData$year <- previousPreviousWarData$year+2
+
+warDataWithPreviousWAR <- merge(warData,previousWarData, by=c("name","year"))
+
+warDataWithPreviousWAR <- merge(warDataWithPreviousWAR,previousPreviousWarData, by=c("name","year"))
+
+attendanceData <- read.csv("data/attendanceData.csv",fileEncoding = "UTF-8-BOM")
+attendanceData$LastYear <- attendanceData$Year - 1
+
+attendanceData$Tm <- replaceOldTeamNames(attendanceData$Tm)
+
+
+
+mlbAbbreviations <- read.csv("data/mlbAbbreviations.csv",fileEncoding = "UTF-8-BOM")
+attendanceData <- merge(x=attendanceData, y=mlbAbbreviations)
+
+#get delta attendance without taking into account team
+lastYearAttendance <- data.frame(Team=attendanceData$Team, LastYear=attendanceData$Year, LastYearLeagueAttendanceMinusTeam=attendanceData$LeagueAttendanceMinusTeam)
+attendanceData <- merge(attendanceData,lastYearAttendance, by=c("Team","LastYear"))
+attendanceData$DeltaLeagueAttendanceMinusTeam <- as.numeric(attendanceData$LeagueAttendanceMinusTeam) - (attendanceData$LastYearLeagueAttendanceMinusTeam)
+
+averageTicketPrice <- read.csv("data/imputedAverageTicketPriceInflationAdjusted.csv",fileEncoding = "UTF-8-BOM")
+newStadiums <- read.csv("data/New Stadiums.csv",fileEncoding = "UTF-8-BOM")
+
+
+warAggregateData <- read.csv("data/teamWARData.csv")
+warAggregateData$Tm <- replaceOldTeamNames(warAggregateData$Tm)
+warAggregateData$Season <- warAggregateData$Year
+warAggregateData$Year <- NULL
+
+
+
+warAggregateData$LastSeason <- warAggregateData$Season - 1
+lastSeasonWarData <- data.frame(Tm=warAggregateData$Tm, LastSeason=warAggregateData$Season, LastSeasonWL=warAggregateData$W.L., LastSeasonWAR = warAggregateData$WAR,LastSeasonOWAR = warAggregateData$oWAR,LastSeasonDWAR = warAggregateData$dWAR,LastSeasonPWAR = warAggregateData$pWAR,LastSeasonBWAR = warAggregateData$bWAR, LastSeasonW = warAggregateData$W)
+warAggregateData <- merge(warAggregateData,lastSeasonWarData, by=c("Tm","LastSeason"))
+warAggregateData$DeltaWL <- as.numeric(warAggregateData$W.L.) - as.numeric(warAggregateData$LastSeasonWL)
+
+
+
+attendanceData$Season <- attendanceData$Year
+attendanceData$Year <- NULL
+
+attendanceTicketPrice <- merge(x=attendanceData, y=averageTicketPrice, by=c("Season","Team"))
+
+attendanceTicketPriceWAR <- merge(x=attendanceTicketPrice,y=warAggregateData,by=c("Tm","Season"))
+#attendanceTicketPriceWAR <- merge(x=attendanceTicketPriceWAR, y=newStadiums, by=c("Season","Team"))
+
+
+newStadiums$RecentStadium <-  newStadiums$NewStadium
+newStadiums$NewStadium <- NULL
+newStadiums$SeasonStadiumBuilt <- newStadiums$Season
+newStadiums$Season <- NULL
+attendanceTicketPriceWAR <- merge(x=attendanceTicketPriceWAR, y=newStadiums, by=c("Team"),all.x = TRUE)
+attendanceTicketPriceWAR$YearSinceStadiumBuilt <- attendanceTicketPriceWAR$Season - attendanceTicketPriceWAR$SeasonStadiumBuilt
+
+
+attendanceTicketPriceWAR$YearSinceStadiumBuilt[attendanceTicketPriceWAR$YearSinceStadiumBuilt > 5] <- NA #only include when stadium is brand new
+attendanceTicketPriceWAR$YearSinceStadiumBuilt[attendanceTicketPriceWAR$YearSinceStadiumBuilt < -1] <- NA #don't use negative values, except the last year
+
+
+
+
+
+teamNameConversion <- read.csv("data/Team Name MSA BEA Census.csv")
+teamNameConversion$Tm <- teamNameConversion$Team
+teamNameConversion$Team <- NULL
+
+censusData <- read.csv("data/MSACensusTidy.csv", fileEncoding="UTF-8-BOM")
+censusData$Season <- censusData$Year
+censusData$Year <- NULL
+
+oddsData <- read_csv("data/odds.csv")
+
+gdpData <- read.csv("data/MSAGDPTidy.csv", fileEncoding="UTF-8-BOM")
+gdpData$Season <- gdpData$Year
+gdpData$Year <- NULL
+gdpData$GDP <- as.numeric(gdpData$GDP * 1000000)
+
+giniData <- read.csv("data/MSAGiniTidy.csv", fileEncoding="UTF-8-BOM")
+giniData$Season <- giniData$Year
+giniData$Year <- NULL
+giniData %>% group_by(GDPMSA,Season) %>% summarise_all(funs(mean)) -> giniData
+
+
+precipitationAnnualData <- read.csv("data/StadiumPrecipitationAnnual.csv", fileEncoding="UTF-8-BOM")
+precipitationAnnualData$Tm <- NULL
+
+attendanceTicketPriceWAR <- merge(attendanceTicketPriceWAR,teamNameConversion, by = "Tm")
+attendanceTicketPriceWAR <- merge(attendanceTicketPriceWAR,censusData, by = c("CensusMSA","Season"))
+attendanceTicketPriceWAR <- merge(attendanceTicketPriceWAR,gdpData, by = c("GDPMSA","Season"))
+attendanceTicketPriceWAR <- merge(attendanceTicketPriceWAR,giniData, by = c("GDPMSA","Season"), all.x=TRUE)#left join
+#precipitation data only goes 11-18. Need 05-18
+attendanceTicketPriceWAR <- merge(x=attendanceTicketPriceWAR,y=precipitationAnnualData, by = c("Season","Team"), all.x = TRUE)
+attendanceTicketPriceWAR <- merge(attendanceTicketPriceWAR,oddsData, by = c("FullName","Season"))
+
+
+previousWarData$Season <- previousWarData$year
+previousWarData$year <- NULL
+
+attendanceTicketPriceWAR$war <- as.numeric(attendanceTicketPriceWAR$WAR)
+attendanceTicketPriceWAR$owar <- as.numeric(attendanceTicketPriceWAR$oWAR)
+attendanceTicketPriceWAR$mdwar <- as.numeric(attendanceTicketPriceWAR$bWAR) - as.numeric(attendanceTicketPriceWAR$oWAR)
+attendanceTicketPriceWAR$mowar <- as.numeric(attendanceTicketPriceWAR$bWAR) - as.numeric(attendanceTicketPriceWAR$dWAR) #strip positional data
+attendanceTicketPriceWAR$deltaWAR <- as.numeric(attendanceTicketPriceWAR$war-attendanceTicketPriceWAR$LastSeasonWAR)
+attendanceTicketPriceWAR$deltaDWAR <- as.numeric(attendanceTicketPriceWAR$dWAR-attendanceTicketPriceWAR$LastSeasonDWAR)
+attendanceTicketPriceWAR$deltaOWAR <- as.numeric(attendanceTicketPriceWAR$oWAR-attendanceTicketPriceWAR$LastSeasonOWAR)
+attendanceTicketPriceWAR$deltaPWAR <- as.numeric(attendanceTicketPriceWAR$pWAR-attendanceTicketPriceWAR$LastSeasonPWAR)
+attendanceTicketPriceWAR$deltaBWAR <- as.numeric(attendanceTicketPriceWAR$bWAR-attendanceTicketPriceWAR$LastSeasonBWAR)
+attendanceTicketPriceWAR$lastSeasonMOWAR <- as.numeric(attendanceTicketPriceWAR$LastSeasonBWAR) - as.numeric(attendanceTicketPriceWAR$LastSeasonDWAR) #strip positional data
+attendanceTicketPriceWAR$deltaMOWAR <- as.numeric(attendanceTicketPriceWAR$mowar-attendanceTicketPriceWAR$lastSeasonMOWAR)
+attendanceTicketPriceWAR$pwar <- as.numeric(attendanceTicketPriceWAR$pWAR)
+attendanceTicketPriceWAR$dwar <- as.numeric(attendanceTicketPriceWAR$dWAR)
+attendanceTicketPriceWAR$wpa <- as.numeric(attendanceTicketPriceWAR$WPA)
+attendanceTicketPriceWAR$winLossPerc <- as.numeric(attendanceTicketPriceWAR$W.L.)
+attendanceTicketPriceWAR$numTeamWins <- as.numeric(attendanceTicketPriceWAR$winLossPerc) * 162 #in case season has less than 162 games, use wp and * by 162
+attendanceTicketPriceWAR$LastSeasonNumTeamWins <- as.numeric(attendanceTicketPriceWAR$LastSeasonWL) * 162
+attendanceTicketPriceWAR$winLossDelta <- as.numeric(attendanceTicketPriceWAR$DeltaWL)
+attendanceTicketPriceWAR$pwarOverWar <- attendanceTicketPriceWAR$pwar / attendanceTicketPriceWAR$WAR
+attendanceTicketPriceWAR$owarOverWar <- attendanceTicketPriceWAR$owar / attendanceTicketPriceWAR$WAR
+attendanceTicketPriceWAR$dwarOverWar <- attendanceTicketPriceWAR$dwar / attendanceTicketPriceWAR$WAR
+attendanceTicketPriceWAR$gdppercapita <- as.numeric(attendanceTicketPriceWAR$GDP) /  as.numeric(attendanceTicketPriceWAR$Population)
+attendanceTicketPriceWAR$gdppercapita2 <- attendanceTicketPriceWAR$gdppercapita ^2
+attendanceTicketPriceWAR$AveragePrice2 <- attendanceTicketPriceWAR$AveragePrice ^2
+attendanceTicketPriceWAR$mowarOverWar <- attendanceTicketPriceWAR$mowar / attendanceTicketPriceWAR$WAR
+attendanceTicketPriceWAR$Season <- as.numeric(attendanceTicketPriceWAR$Season)
+attendanceTicketPriceWAR$AveragePrice <- as.numeric(attendanceTicketPriceWAR$AveragePrice)
+attendanceTicketPriceWAR$AveragePriceSquared <- attendanceTicketPriceWAR$AveragePrice^2
+attendanceTicketPriceWAR$LuckyWins <- attendanceTicketPriceWAR$numTeamWins - (attendanceTicketPriceWAR$mowar + attendanceTicketPriceWAR$dwar + attendanceTicketPriceWAR$pwar + 47.628)
+attendanceTicketPriceWAR$LastSeasonLuckyWins <- attendanceTicketPriceWAR$LastSeasonNumTeamWins - (attendanceTicketPriceWAR$lastSeasonMOWAR + attendanceTicketPriceWAR$LastSeasonDWAR + attendanceTicketPriceWAR$LastSeasonPWAR + 47.628)
+attendanceTicketPriceWAR$deltaLuckyWins <- as.numeric(attendanceTicketPriceWAR$LuckyWins-attendanceTicketPriceWAR$LastSeasonLuckyWins)
+
+attendanceTicketPriceWAR$NewStadium <- (attendanceTicketPriceWAR$YearSinceStadiumBuilt >= 0 & attendanceTicketPriceWAR$YearSinceStadiumBuilt<3) #just include 0,1,2 (not -1)
+attendanceTicketPriceWAR$NewStadium[is.na(attendanceTicketPriceWAR$NewStadium)] <- FALSE
+attendanceTicketPriceWAR$NewStadium <- as.numeric(attendanceTicketPriceWAR$NewStadium)
+
+attendanceTicketPriceWAR$PlayedInPlayoffs <- as.numeric(attendanceTicketPriceWAR$PlayedInPlayoffs)
+write.csv(attendanceTicketPriceWAR, file = "data/attendanceTicketPriceWAR.csv")
+```
+
+
+
